@@ -1,9 +1,9 @@
 {
-  "name": "com.takkub.jtupdater",
-  "description": "J&T Inbound Checker auto-updater",
-  "path": "PLACEHOLDER",
-  "type": "stdio",
-  "allowed_origins": [
-    "chrome-extension://oiglldeidblbehpagcjkjjojjpocgonb/"
-  ]
+    "name":  "com.takkub.jtupdater",
+    "description":  "J\u0026T Inbound Checker auto-updater",
+    "path":  "C:\\Users\\monch\\WebstormProjects\\scan-shipping\\extension\\tools\\updater-host.bat",
+    "type":  "stdio",
+    "allowed_origins":  [
+                            "chrome-extension://oiglldeidblbehpagcjkjjojjpocgonb/"
+                        ]
 }
