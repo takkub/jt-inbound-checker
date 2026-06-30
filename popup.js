@@ -414,7 +414,7 @@ const DISMISSED_UPDATE_KEY = 'jtInbound.dismissedUpdate';
         if (dismissed && !semverGt(data.version, dismissed)) return;
         document.getElementById('update-version').textContent = data.version;
         const link = document.getElementById('update-link');
-        if (data.url) link.href = data.url;
+        if (data.url) { link.href = data.url; link.setAttribute('download', ''); }
         const notes = document.getElementById('update-notes');
         if (data.notes) notes.textContent = '· ' + data.notes;
         document.getElementById('update-banner').hidden = false;

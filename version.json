@@ -1,5 +1,5 @@
 {
-  "version": "4.3.0",
-  "url": "https://github.com/takkub/jt-inbound-checker/releases/latest",
-  "notes": "เพิ่มระบบเช็คอัปเดตอัตโนมัติ (update banner)"
+  "version": "4.3.1",
+  "url": "https://github.com/takkub/jt-inbound-checker/releases/latest/download/jt-inbound-checker.zip",
+  "notes": "แก้บั๊ก banner เด้งตลอดเวลา + ปุ่มโหลดดาวน์โหลด zip โดยตรง"
 }
