@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "J&T Inbound Checker",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "description": "อ่าน QR/barcode จาก PDF ใบปะหน้า และกรอก waybill เข้าช่อง Shipping Inbound บน J&T อัตโนมัติ (DOM automation)",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2ww3uXXEUpwJliZdu1kaHc7ZCJQ788Cty5Edsc+PR1QP3qtovTAa92ZNSrNfRmtAWNIS3976SByO8J1YrJglNcUDJKz6XWDvGfqmQWvt8ZyNfBo0e88qWc7TCKKm+kgOuEB0V3xWDKypomjyb4I/1i9/ECvPXZ7Xe5mg+35WTCCg2StGBHd8K0xr6NAuDH6+AU3vk9szAbLC5isqLMIdER8ua/brY/2U2jOS7t1cpThWnx0r8Ms+BOAeuKucg0/mBz8NDQ8E+G/ymUxf8foQ8ZMmtir/EdbugtjpOwajepaI8lEoI6kufsV1v/EokFtT6iZOPfSGgQi8iI8Cv3BQVQIDAQAB",
   "permissions": ["activeTab", "storage", "tabs", "scripting", "offscreen", "nativeMessaging"],
