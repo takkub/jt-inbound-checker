@@ -419,26 +419,22 @@ function fileToBase64(file) {
       btnAuto.addEventListener('click', () => {
         btnAuto.disabled = true;
         statusEl.textContent = 'กำลังอัปเดต...';
-        let responded = false;
-        const port = chrome.runtime.connectNative('com.takkub.jtupdater');
-        port.onMessage = (msg) => {
-          responded = true;
-          if (msg && msg.ok) {
-            statusEl.textContent = 'อัปเดตสำเร็จ กำลัง reload...';
-            setTimeout(() => chrome.runtime.reload(), 800);
-          } else {
-            statusEl.textContent = 'อัปเดตไม่สำเร็จ: ' + (msg && msg.error || '?') + ' — ลองกดโหลดเอง';
-            btnAuto.disabled = false;
-          }
-        };
-        port.onDisconnect = () => {
-          if (responded) return;
-          if (chrome.runtime.lastError) {
-            statusEl.textContent = 'ยังไม่ได้ติดตั้ง updater — รัน tools/install-updater.bat ครั้งเดียวก่อน (หรือกดโหลดเองด้านบน)';
-            btnAuto.disabled = false;
-          }
-        };
-        port.postMessage({ action: 'update', url: data.url, version: data.version });
+        chrome.runtime.sendNativeMessage('com.takkub.jtupdater',
+          { action: 'update', url: data.url, version: data.version },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              statusEl.textContent = 'อัปเดตไม่สำเร็จ: ' + chrome.runtime.lastError.message + ' (ยังไม่ได้ติดตั้ง updater? รัน tools/install-updater.bat) — หรือกดโหลดเอง';
+              btnAuto.disabled = false;
+              return;
+            }
+            if (response && response.ok) {
+              statusEl.textContent = 'อัปเดตสำเร็จ กำลัง reload...';
+              setTimeout(() => chrome.runtime.reload(), 800);
+            } else {
+              statusEl.textContent = 'อัปเดตไม่สำเร็จ: ' + ((response && response.error) || '?') + ' — ลองกดโหลดเอง';
+              btnAuto.disabled = false;
+            }
+          });
       });
     })
     .catch(() => {}); // graceful fail — network/CORS ไม่รบกวน user
