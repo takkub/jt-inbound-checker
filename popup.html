@@ -62,7 +62,10 @@ tr:hover td { background: #fafafa; }
 #history-empty { padding: 20px; text-align: center; color: #9e9e9e; }
 
 /* Version badge */
-#version-badge { margin-left: auto; padding: 0 10px; font: bold 13px system-ui; color: rgba(255,255,255,.85); align-self: center; }
+#version-badge { margin-left: auto; padding: 0 6px; font: bold 13px system-ui; color: rgba(255,255,255,.85); align-self: center; }
+#btn-check-update { padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 3px; margin-right: 8px; align-self: center; }
+#btn-check-update:hover:not(:disabled) { background: rgba(255,255,255,.25); }
+#check-update-status { font-size: 11px; color: rgba(255,255,255,.8); margin-right: 8px; align-self: center; white-space: nowrap; }
 
 /* Update banner */
 #update-banner { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: #fff3cd; border-bottom: 2px solid #f0ad4e; font-size: 12px; color: #7d4e00; }
@@ -77,6 +80,8 @@ tr:hover td { background: #fafafa; }
   <button class="tab active" data-tab="scan">Scan</button>
   <button class="tab" data-tab="history">History (ไม่ผ่าน)</button>
   <span id="version-badge"></span>
+  <span id="check-update-status"></span>
+  <button id="btn-check-update">เช็คอัปเดต</button>
 </div>
 <div id="update-banner" hidden>
   🔔 มี v<span id="update-version"></span> ใหม่ — <a id="update-link" href="#" target="_blank">กดโหลด</a>

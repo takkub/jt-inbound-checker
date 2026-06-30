@@ -389,24 +389,40 @@ function fileToBase64(file) {
 }
 
 // --- Version badge + update check ---
-(function initVersionAndUpdate() {
-  const manifest = chrome.runtime.getManifest();
-  document.getElementById('version-badge').textContent = 'v' + manifest.version;
+const _manifest = chrome.runtime.getManifest();
+document.getElementById('version-badge').textContent = 'v' + _manifest.version;
 
-  function semverGt(a, b) {
-    const pa = a.split('.').map(Number);
-    const pb = b.split('.').map(Number);
-    for (let i = 0; i < 3; i++) {
-      if ((pa[i] || 0) > (pb[i] || 0)) return true;
-      if ((pa[i] || 0) < (pb[i] || 0)) return false;
-    }
-    return false;
+function semverGt(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return true;
+    if ((pa[i] || 0) < (pb[i] || 0)) return false;
+  }
+  return false;
+}
+
+const $btnCheckUpdate    = document.getElementById('btn-check-update');
+const $checkUpdateStatus = document.getElementById('check-update-status');
+
+function checkForUpdate(manual) {
+  if (manual) {
+    $btnCheckUpdate.disabled = true;
+    $checkUpdateStatus.textContent = 'กำลังเช็ค...';
   }
 
-  fetch(UPDATE_MANIFEST_URL, { cache: 'no-cache' })
+  fetch(UPDATE_MANIFEST_URL + '?t=' + Date.now(), { cache: 'no-cache' })
     .then(r => r.ok ? r.json() : Promise.reject('not-ok'))
     .then(data => {
-      if (!data || typeof data.version !== 'string' || !semverGt(data.version, manifest.version)) return;
+      if (manual) {
+        $btnCheckUpdate.disabled = false;
+        $checkUpdateStatus.textContent = '';
+      }
+      if (!data || typeof data.version !== 'string') return;
+      if (!semverGt(data.version, _manifest.version)) {
+        if (manual) $checkUpdateStatus.textContent = 'เป็นเวอร์ชันล่าสุดแล้ว (v' + _manifest.version + ')';
+        return;
+      }
       document.getElementById('update-version').textContent = data.version;
       const link = document.getElementById('update-link');
       if (data.url) { link.href = data.url; link.setAttribute('download', ''); }
@@ -416,15 +432,18 @@ function fileToBase64(file) {
 
       const btnAuto = document.getElementById('btn-auto-update');
       const statusEl = document.getElementById('update-status');
-      btnAuto.addEventListener('click', () => {
-        btnAuto.disabled = true;
+      // Prevent duplicate listeners when checkForUpdate called multiple times
+      const newBtnAuto = btnAuto.cloneNode(true);
+      btnAuto.parentNode.replaceChild(newBtnAuto, btnAuto);
+      newBtnAuto.addEventListener('click', () => {
+        newBtnAuto.disabled = true;
         statusEl.textContent = 'กำลังอัปเดต...';
         chrome.runtime.sendNativeMessage('com.takkub.jtupdater',
           { action: 'update', url: data.url, version: data.version },
           (response) => {
             if (chrome.runtime.lastError) {
               statusEl.textContent = 'อัปเดตไม่สำเร็จ: ' + chrome.runtime.lastError.message + ' (ยังไม่ได้ติดตั้ง updater? รัน tools/install-updater.bat) — หรือกดโหลดเอง';
-              btnAuto.disabled = false;
+              newBtnAuto.disabled = false;
               return;
             }
             if (response && response.ok) {
@@ -432,13 +451,21 @@ function fileToBase64(file) {
               setTimeout(() => chrome.runtime.reload(), 800);
             } else {
               statusEl.textContent = 'อัปเดตไม่สำเร็จ: ' + ((response && response.error) || '?') + ' — ลองกดโหลดเอง';
-              btnAuto.disabled = false;
+              newBtnAuto.disabled = false;
             }
           });
       });
     })
-    .catch(() => {}); // graceful fail — network/CORS ไม่รบกวน user
-})();
+    .catch(() => {
+      if (manual) {
+        $btnCheckUpdate.disabled = false;
+        $checkUpdateStatus.textContent = 'เช็คไม่สำเร็จ — เครือข่ายมีปัญหา';
+      }
+    });
+}
+
+$btnCheckUpdate.addEventListener('click', () => checkForUpdate(true));
+checkForUpdate(false);
 
 // --- Init ---
 init();
