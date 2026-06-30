@@ -1,5 +1,5 @@
 {
-  "version": "4.3.1",
+  "version": "4.3.2",
   "url": "https://github.com/takkub/jt-inbound-checker/releases/latest/download/jt-inbound-checker.zip",
-  "notes": "แก้บั๊ก banner เด้งตลอดเวลา + ปุ่มโหลดดาวน์โหลด zip โดยตรง"
+  "notes": "banner เตือนต่อจนกว่าจะติดตั้งเวอร์ชันใหม่จริง"
 }

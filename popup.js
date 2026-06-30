@@ -389,8 +389,6 @@ function fileToBase64(file) {
 }
 
 // --- Version badge + update check ---
-const DISMISSED_UPDATE_KEY = 'jtInbound.dismissedUpdate';
-
 (function initVersionAndUpdate() {
   const manifest = chrome.runtime.getManifest();
   document.getElementById('version-badge').textContent = 'v' + manifest.version;
@@ -409,21 +407,12 @@ const DISMISSED_UPDATE_KEY = 'jtInbound.dismissedUpdate';
     .then(r => r.ok ? r.json() : Promise.reject('not-ok'))
     .then(data => {
       if (!data || typeof data.version !== 'string' || !semverGt(data.version, manifest.version)) return;
-      chrome.storage.local.get({ [DISMISSED_UPDATE_KEY]: '' }, ({ [DISMISSED_UPDATE_KEY]: dismissed }) => {
-        // Skip banner if user already dismissed this version (or newer)
-        if (dismissed && !semverGt(data.version, dismissed)) return;
-        document.getElementById('update-version').textContent = data.version;
-        const link = document.getElementById('update-link');
-        if (data.url) { link.href = data.url; link.setAttribute('download', ''); }
-        const notes = document.getElementById('update-notes');
-        if (data.notes) notes.textContent = '· ' + data.notes;
-        document.getElementById('update-banner').hidden = false;
-
-        link.addEventListener('click', () => {
-          document.getElementById('update-banner').hidden = true;
-          chrome.storage.local.set({ [DISMISSED_UPDATE_KEY]: data.version });
-        });
-      });
+      document.getElementById('update-version').textContent = data.version;
+      const link = document.getElementById('update-link');
+      if (data.url) { link.href = data.url; link.setAttribute('download', ''); }
+      const notes = document.getElementById('update-notes');
+      if (data.notes) notes.textContent = '· ' + data.notes;
+      document.getElementById('update-banner').hidden = false;
     })
     .catch(() => {}); // graceful fail — network/CORS ไม่รบกวน user
 })();

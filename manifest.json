@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "J&T Inbound Checker",
-  "version": "4.3.1",
+  "version": "4.3.2",
   "description": "อ่าน QR/barcode จาก PDF ใบปะหน้า และกรอก waybill เข้าช่อง Shipping Inbound บน J&T อัตโนมัติ (DOM automation)",
   "permissions": ["activeTab", "storage", "tabs", "scripting", "offscreen"],
   "host_permissions": [
