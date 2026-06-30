@@ -1,5 +1,5 @@
 {
-  "version": "4.3.2",
+  "version": "4.4.0",
   "url": "https://github.com/takkub/jt-inbound-checker/releases/latest/download/jt-inbound-checker.zip",
-  "notes": "banner เตือนต่อจนกว่าจะติดตั้งเวอร์ชันใหม่จริง"
+  "notes": "auto-update ผ่านปุ่มในตัว (ติดตั้ง updater ครั้งเดียว)"
 }

@@ -1,0 +1,9 @@
+{
+  "name": "com.takkub.jtupdater",
+  "description": "J&T Inbound Checker auto-updater",
+  "path": "PLACEHOLDER",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://oiglldeidblbehpagcjkjjojjpocgonb/"
+  ]
+}
