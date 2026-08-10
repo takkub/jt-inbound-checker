@@ -11,6 +11,22 @@ let running = false;
 
 const ACTIVE_SCAN_KEY = 'jtInbound.activeScan';
 
+function isJtInboundUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== 'https:') return false;
+    if (url.hostname === 'home-site.jtexpress.co.th') {
+      return url.pathname === '/mailPutIn' || url.pathname.startsWith('/mailPutIn/');
+    }
+    if (url.hostname === 'home.jtexpress.co.th') {
+      return url.hash === '#/mailPutIn'
+        || url.hash.startsWith('#/mailPutIn?')
+        || url.hash.startsWith('#/mailPutIn/');
+    }
+  } catch {}
+  return false;
+}
+
 // --- DOM ---
 const $waybills      = document.getElementById('waybills');
 const $btnStart      = document.getElementById('btn-start');
@@ -101,7 +117,7 @@ async function injectAndConnect(tabId) {
 async function init() {
   loadSettings();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.url?.includes('home.jtexpress.co.th')) {
+  if (!isJtInboundUrl(tab?.url)) {
     $notJt.hidden = false;
     $scanUi.hidden = true;
     checkActiveScan();
@@ -118,8 +134,8 @@ function checkActiveScan() {
   chrome.storage.local.get({ [ACTIVE_SCAN_KEY]: null }, ({ [ACTIVE_SCAN_KEY]: saved }) => {
     if (!saved?.running || !Array.isArray(saved.queue) || !saved.queue.length || !saved.tabId) return;
     chrome.tabs.get(saved.tabId, (tab) => {
-      if (chrome.runtime.lastError || !tab || !tab.url?.includes('home.jtexpress.co.th')) {
-        // Tab gone or no longer on J&T — clear stale state
+      if (chrome.runtime.lastError || !tab || !isJtInboundUrl(tab.url)) {
+        // Tab gone or no longer on a supported Shipping Inbound route — clear stale state
         chrome.storage.local.remove(ACTIVE_SCAN_KEY);
         chrome.runtime.sendMessage({ type: 'set-badge', text: '' }).catch(() => {});
         return;

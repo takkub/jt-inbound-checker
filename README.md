@@ -1,6 +1,6 @@
 # J&T Inbound Checker
 
-Chrome Extension ที่อ่าน QR code / barcode จากไฟล์ PDF ใบปะหน้าพัสดุ แล้วกรอกเลข waybill เข้าช่อง Shipping Inbound บนเว็บ J&T Express (`home.jtexpress.co.th`) โดยอัตโนมัติผ่าน DOM automation — ลดงาน manual ที่ต้องพิมพ์เลขพัสดุทีละชิ้น
+Chrome Extension ที่อ่าน QR code / barcode จากไฟล์ PDF ใบปะหน้าพัสดุ แล้วกรอกเลข waybill เข้าช่อง Shipping Inbound บนเว็บ J&T Express ทั้งเว็บใหม่ (`home-site.jtexpress.co.th`) และเว็บเดิม (`home.jtexpress.co.th`) โดยอัตโนมัติผ่าน DOM automation — ลดงาน manual ที่ต้องพิมพ์เลขพัสดุทีละชิ้น
 
 ---
 
@@ -75,7 +75,10 @@ Extension ID ที่ถูกต้องคือ: **`oiglldeidblbehpagcjkjjo
 
 ### 3.1 เปิดหน้า J&T ก่อน
 
-**ต้องเปิด** `https://home.jtexpress.co.th` และไปที่หน้า **Shipping Inbound** (URL มี `#/mailPutIn`) ก่อนเสมอ จากนั้นจึงคลิก icon extension ใน toolbar
+**ต้องเปิดหน้า Shipping Inbound URL ใด URL หนึ่งต่อไปนี้** ก่อนเสมอ จากนั้นจึงคลิก icon extension ใน toolbar:
+
+- เว็บใหม่: `https://home-site.jtexpress.co.th/mailPutIn`
+- เว็บเดิม: `https://home.jtexpress.co.th/#/mailPutIn`
 
 หากคลิก extension ขณะอยู่หน้าอื่น popup จะแสดงข้อความ:
 > "กรุณาเปิดหน้า **J&T Shipping Inbound** แล้วกด extension icon อีกครั้ง"
@@ -88,7 +91,7 @@ Popup มี **2 แท็บ** ที่แถบสีน้ำเงินด
 - **Scan** — แท็บหลัก ใช้ยิง waybill
 - **History (ไม่ผ่าน)** — ดูประวัติรายการที่ยิงไม่ผ่าน
 
-มุมขวาบนของแถบแสดง badge เวอร์ชัน เช่น **`v4.4.2`**
+มุมขวาบนของแถบแสดง badge เวอร์ชัน เช่น **`v4.4.7`**
 
 ### 3.3 วิธีป้อนข้อมูล — 2 แบบ
 
@@ -148,11 +151,11 @@ EX0123456790TH, EX0123456791TH
 | **⚠ Timeout** | ส้ม | รอ 3 วินาทีแล้วระบบ J&T ไม่ตอบ (อาจ retry ได้) |
 | **— รอ** | เทา | รอคิวอยู่ ยังไม่ได้ยิง |
 
-รายการที่ "ยิงซ้ำ" (waybill เคยถูกยิงเข้าระบบแล้ว) ระบบ J&T จะแจ้งผ่าน dialog หรือ toast — extension จะแปลงเป็น **✓ ผ่าน** พร้อมข้อความ "ยิงซ้ำ (เลขนี้เคยยิงเข้าระบบแล้ว)" เพื่อให้ batch ดำเนินต่อได้โดยไม่ติด
+รายการที่ "ยิงซ้ำ" (waybill เคยถูกยิงเข้าระบบแล้ว) ระบบ J&T จะแจ้งผ่าน dialog หรือ toast — extension จะแปลงเป็น **✓ ผ่าน** เฉพาะเมื่อข้อความตอบกลับระบุเลข waybill ปัจจุบันตรงตัว พร้อมข้อความ "ยิงซ้ำ (เลขนี้เคยยิงเข้าระบบแล้ว)" เพื่อไม่ให้ข้อความค้างจากรายการก่อนหน้าถูกนับผิด
 
 ### 3.8 badge เวอร์ชันมุมขวาล่างบนหน้า J&T
 
-เมื่อเปิดหน้า `home.jtexpress.co.th` จะเห็น badge กึ่งโปร่งใส มุมขวาล่างของหน้าเว็บ แสดง `J&T Checker v4.4.2` — ยืนยันว่า extension โหลดทำงานบนหน้านั้นแล้ว (ไม่ block การคลิก)
+เมื่อเปิดหน้า Shipping Inbound บน `home-site.jtexpress.co.th` หรือ `home.jtexpress.co.th` จะเห็น badge กึ่งโปร่งใส มุมขวาล่างของหน้าเว็บ แสดง `J&T Checker v4.4.7` — ยืนยันว่า extension โหลดทำงานบนหน้านั้นแล้ว (ไม่ block การคลิก)
 
 badge นี้จะแสดงความคืบหน้าแบบ `3/10` ใน Chrome tab badge icon ด้วย ระหว่างที่ scan รัน
 
@@ -202,7 +205,7 @@ badge นี้จะแสดงความคืบหน้าแบบ `3/1
 | แบนเนอร์ไม่เด้งทั้งที่มีเวอร์ชันใหม่แล้ว | GitHub cache ยังค้างอยู่ รอประมาณ 5 นาทีแล้วปิด/เปิด popup ใหม่ |
 | icon extension เป็นสีเทา / คลิกแล้วไม่ขึ้นอะไร | ไปที่ `chrome://extensions` กด **Reload** ที่ J&T Inbound Checker |
 | ย้ายโฟลเดอร์ extension แล้ว "อัปเดตเดี๋ยวนี้" ไม่ทำงาน | updater บันทึก path เก่าไว้ ต้องรัน `tools/install-updater.bat` ใหม่อีกครั้ง |
-| popup ขึ้น "กรุณาเปิดหน้า J&T Shipping Inbound" | เปิดแท็บ `home.jtexpress.co.th` และนำทางไปยังหน้า Shipping Inbound (#/mailPutIn) ก่อน แล้วคลิก icon ใหม่ |
+| popup ขึ้น "กรุณาเปิดหน้า J&T Shipping Inbound" | เปิดเว็บใหม่ที่ `https://home-site.jtexpress.co.th/mailPutIn` หรือเว็บเดิมที่ `https://home.jtexpress.co.th/#/mailPutIn` แล้วคลิก icon ใหม่ |
 | ยิงแล้วได้ Timeout ทุกรายการ | หน้า J&T ไม่ตอบสนองภายใน 3 วินาที — ลองเพิ่ม "หน่วงเวลา (ms)" หรือ refresh หน้า J&T แล้วลองใหม่ |
 | PDF อัปโหลดแล้วได้ "⚠ X หน้าต้องตรวจเอง" | หน้าเหล่านั้น QR/barcode เบลอหรืออ่านไม่ออก ต้องพิมพ์เลข waybill เองลงใน textarea |
 | badge เวอร์ชันบนหน้า J&T ไม่แสดง | refresh หน้า J&T — content script ต้องโหลดหลัง extension พร้อม |
@@ -214,6 +217,7 @@ badge นี้จะแสดงความคืบหน้าแบบ `3/1
 - **Auto-updater ใช้ได้เฉพาะ Windows + Chrome** (Native Messaging ต้องการ .bat/registry บน Windows)  
   ผู้ใช้ macOS / Linux ต้องอัปเดตแบบ manual เสมอ
 - **ตัว extension** (การอ่าน PDF และยิง waybill) ใช้ได้กับ **ทุก OS ที่รัน Chrome**
-- Extension ทำงานกับหน้า `home.jtexpress.co.th` เท่านั้น — ไม่รองรับหน้าอื่น
+- Extension ทำงานเฉพาะหน้า Shipping Inbound ที่ `home-site.jtexpress.co.th/mailPutIn` และ `home.jtexpress.co.th/#/mailPutIn` — ไม่รองรับ route หรือโดเมนอื่น
+- Automation กรอกเลขแล้วกดเฉพาะปุ่ม **OK** ที่อยู่ใน control group เดียวกับช่อง Waybill เพื่อเพิ่มเข้า Scan list เท่านั้น หากหาแบบเจาะจงไม่ได้จะหยุดอย่างปลอดภัย และจะไม่กดหรือยืนยัน **Upload All**
 - การยิง waybill อาศัย DOM automation — หาก J&T เปลี่ยน UI อาจหยุดทำงาน รอ update จาก repo
 - เวลา timeout ต่อ 1 รายการคือ 3 วินาที — เครือข่ายช้าหรือ J&T ตอบช้าอาจได้ Timeout แล้วค่อย retry

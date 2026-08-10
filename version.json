@@ -1,5 +1,5 @@
 {
-  "version": "4.4.6",
+  "version": "4.4.7",
   "url": "https://github.com/takkub/jt-inbound-checker/releases/latest/download/jt-inbound-checker.zip",
-  "notes": "เพิ่มปุ่มเช็คอัปเดตเอง"
+  "notes": "รองรับ Shipping Inbound ใหม่ที่ home-site.jtexpress.co.th/mailPutIn พร้อมคงเว็บเดิม"
 }

@@ -4,27 +4,88 @@ const DEFAULT_DELAY_MS = 1000;
 const RESULT_TIMEOUT_MS = 3000;
 const ACTIVE_SCAN_KEY = 'jtInbound.activeScan';
 
-// Selectors — all J&T-specific DOM references live here; update once if site changes
+// Selectors for both the legacy Element UI page and the new home-site UI.
 const SEL = {
-  waybillInput:      'input[placeholder="Waybill"]',
-  okButton:          'button',            // filtered by textContent === 'OK' in findOkButton()
-  scanListRow:       '.el-table__row',
-  formError:         '.el-form-item__error',
-  toastError:        '.el-message--error',
-  toastSuccess:      '.el-message--success',
-  toastWarning:      '.el-message--warning',
-  messageBox:        '.el-message-box',
-  messageBoxMsg:     '.el-message-box__message',
-  messageBoxConfirm: '.el-message-box__btns .el-button--primary',
+  exactWaybillInput: [
+    'input[placeholder="Please enter the waybill no."]',
+    'input[placeholder="Waybill"]',
+  ].join(','),
+  scanListRow: [
+    '.el-table__body-wrapper .el-table__row',
+    '.ant-table-tbody > tr.ant-table-row',
+    '.ant-table-tbody > tr',
+    'table tbody > tr',
+  ].join(','),
+  formError: [
+    '.el-form-item__error',
+    '.ant-form-explain',
+    '.ant-form-item-explain-error',
+    '.ant-form-item-explain [role="alert"]',
+    '.ant-form-item-has-error .ant-form-item-explain',
+  ].join(','),
+  toastError: [
+    '.el-message--error',
+    '.ant-message-error',
+    '.ant-notification-notice-error',
+    '.ant-alert-error',
+  ].join(','),
+  toastSuccess: [
+    '.el-message--success',
+    '.ant-message-success',
+    '.ant-notification-notice-success',
+    '.ant-alert-success',
+  ].join(','),
+  toastWarning: [
+    '.el-message--warning',
+    '.ant-message-warning',
+    '.ant-notification-notice-warning',
+    '.ant-alert-warning',
+  ].join(','),
+  allToasts: [
+    '.el-message',
+    '.ant-message-notice',
+    '.ant-notification-notice',
+    '.ant-alert',
+  ].join(','),
+  messageBox: '.el-message-box, .ant-modal',
+  messageBoxMsg: '.el-message-box__message, .ant-modal-body',
 };
 
-// Keywords that indicate a duplicate/already-scanned condition on J&T side.
-// case-insensitive substring match; extend here if J&T changes wording.
-const DUPLICATE_KEYWORDS = ['สแกนแล้ว', 'เคยสแกน', 'สแกนซ้ำ', 'ซ้ำ', 'already', 'scanned', 'exist', 'duplicate'];
+// Reject negative/not-found messages before looking for an explicit duplicate phrase.
+const NOT_DUPLICATE_PATTERNS = [
+  /\bdoes\s+not\s+exist\b/i,
+  /\bdo\s+not\s+exist\b/i,
+  /\bnot\s+exist(?:s|ed|ing)?\b/i,
+  /\bnon[ -]?existent\b/i,
+  /\bnot\s+found\b/i,
+  /ไม่พบ/,
+  /ไม่มี(?:ข้อมูล|เลข|พัสดุ|รายการ)?/,
+];
+
+const DUPLICATE_PATTERNS = [
+  /\balready\s+exists?\b/i,
+  /\balready\s+(?:been\s+)?scanned\b/i,
+  /\bhas\s+(?:already\s+)?been\s+scanned\b/i,
+  /\bduplicate\b/i,
+  /สแกนแล้ว/,
+  /เคยสแกน/,
+  /สแกนซ้ำ/,
+  /(?:เลข|รายการ|พัสดุ)(?:นี้)?ซ้ำ/,
+];
 
 function isDuplicate(text) {
-  const lower = text.toLowerCase();
-  return DUPLICATE_KEYWORDS.some(kw => lower.includes(kw.toLowerCase()));
+  if (NOT_DUPLICATE_PATTERNS.some(pattern => pattern.test(text))) return false;
+  return DUPLICATE_PATTERNS.some(pattern => pattern.test(text));
+}
+
+function containsExactWaybill(text, waybill) {
+  if (!text || !waybill) return false;
+  const escaped = waybill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^A-Za-z0-9])${escaped}($|[^A-Za-z0-9])`, 'i').test(text);
+}
+
+function isUploadAllText(text) {
+  return /\bupload\s*all\b|อัปโหลดทั้งหมด|อัพโหลดทั้งหมด|上传全部/i.test(text);
 }
 
 let state = {
@@ -33,6 +94,28 @@ let state = {
 };
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function isInboundLocation(loc = window.location) {
+  if (loc.protocol !== 'https:') return false;
+  if (loc.hostname === 'home-site.jtexpress.co.th') {
+    return loc.pathname === '/mailPutIn' || loc.pathname.startsWith('/mailPutIn/');
+  }
+  if (loc.hostname === 'home.jtexpress.co.th') {
+    return loc.hash === '#/mailPutIn'
+      || loc.hash.startsWith('#/mailPutIn?')
+      || loc.hash.startsWith('#/mailPutIn/');
+  }
+  return false;
+}
+
+function isVisible(el) {
+  return !!el && !el.hidden && getComputedStyle(el).visibility !== 'hidden'
+    && getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0;
+}
+
+function visibleElements(selector) {
+  return [...document.querySelectorAll(selector)].filter(isVisible);
+}
 
 function persistState() {
   chrome.storage.local.set({
@@ -67,66 +150,112 @@ function notify(data) {
 
 // Re-query every call — SPA may replace DOM nodes on route change
 function findWaybillInput() {
-  let el = document.querySelector(SEL.waybillInput);
+  let el = visibleElements(SEL.exactWaybillInput).find(input => !input.disabled && !input.readOnly);
   if (el) return el;
-  // Fallback: find label with text 'Waybill' → .el-form-item parent → first input
+
+  // Attribute fallback for small copy changes in either site.
+  el = [...document.querySelectorAll('input:not([type="hidden"]):not([type="file"])')].find(input => {
+    if (!isVisible(input) || input.disabled || input.readOnly) return false;
+    const hint = [input.placeholder, input.name, input.id, input.getAttribute('aria-label')]
+      .filter(Boolean).join(' ').toLowerCase();
+    return /way\s*bill/.test(hint);
+  });
+  if (el) return el;
+
+  // Label fallback: find a Waybill label and stay inside that form item.
   for (const label of document.querySelectorAll('label')) {
-    if (label.textContent.includes('Waybill')) {
-      const item = label.closest('.el-form-item');
-      if (item) { el = item.querySelector('input'); if (el) return el; }
+    if (/way\s*bill/i.test(label.textContent)) {
+      const labelled = label.htmlFor && document.getElementById(label.htmlFor);
+      if (labelled instanceof HTMLInputElement && isVisible(labelled)) return labelled;
+      const item = label.closest('.el-form-item, .ant-form-item, form, [class*="form-item"]');
+      if (item) {
+        el = [...item.querySelectorAll('input:not([type="hidden"]):not([type="file"])')].find(isVisible);
+        if (el) return el;
+      }
     }
   }
   return null;
 }
 
-function findOkButton() {
-  for (const btn of document.querySelectorAll(SEL.okButton)) {
-    if (btn.textContent.trim() === 'OK') return btn;
+function isSafeOkButton(btn) {
+  const text = btn.textContent.trim();
+  return /^OK$/i.test(text)
+    && !/upload\s*all/i.test(text)
+    && !btn.disabled
+    && btn.getAttribute('aria-disabled') !== 'true'
+    && !btn.closest(SEL.messageBox)
+    && isVisible(btn);
+}
+
+function findOkButton(input) {
+  // Only accept an exact-OK button inside the input's local control/form-item.
+  // Stop before broad form/page containers; ambiguity fails safely.
+  let scope = input?.parentElement;
+  for (let depth = 0; scope && depth < 6; depth++, scope = scope.parentElement) {
+    if (scope.matches('form, main, body, [role="main"]')) break;
+    const buttons = [...scope.querySelectorAll('button, [role="button"]')].filter(isSafeOkButton);
+    if (buttons.length === 1) return buttons[0];
+    if (buttons.length > 1) return null;
   }
   return null;
 }
 
-// Dismiss visible El-Message toasts and return their texts for staleness detection.
-// Element UI toasts linger ~3s — clearing before click prevents cross-round false signals.
+// Dismiss visible Element/Ant toasts and retain their nodes for staleness detection.
+// Toasts can linger across rounds, so they must not become the next scan's result.
 function dismissStaleToasts() {
-  const staleTexts = new Set();
-  for (const el of document.querySelectorAll('.el-message')) {
-    if (el.offsetParent !== null) {
-      staleTexts.add(el.textContent.trim());
-      const closeBtn = el.querySelector('.el-message__closeBtn');
+  const staleNodes = new Set();
+  for (const el of visibleElements(SEL.allToasts)) {
+      staleNodes.add(el);
+      const closeBtn = el.querySelector('.el-message__closeBtn, .ant-message-notice-close, .ant-notification-notice-close, .ant-alert-close-icon');
       if (closeBtn) closeBtn.click();
-    }
   }
-  return staleTexts;
+  return staleNodes;
 }
 
-// Dismiss the El-MessageBox dialog (modal alert from J&T) by clicking its primary confirm button.
-// Scoped strictly to buttons inside .el-message-box — never touches page-level buttons.
-function dismissMessageBox() {
-  const box = document.querySelector(SEL.messageBox);
-  if (!box || box.offsetParent === null) return;
-  const confirmBtn = box.querySelector(SEL.messageBoxConfirm)
-    || [...box.querySelectorAll('button')].find(b => /ตกลง|OK|确定/i.test(b.textContent.trim()));
+function isFreshToast(el, staleToastNodes) {
+  return ![...staleToastNodes].some(
+    stale => stale === el || stale.contains(el) || el.contains(stale)
+  );
+}
+
+function getDialogText(box) {
+  const msgEl = box.querySelector(SEL.messageBoxMsg);
+  return (msgEl ? msgEl.textContent : box.textContent).trim();
+}
+
+function findRequestResultDialog(waybill, dialogsBefore) {
+  return visibleElements(SEL.messageBox).find(box => {
+    const text = getDialogText(box);
+    return !dialogsBefore.has(box) && !isUploadAllText(text) && containsExactWaybill(text, waybill);
+  }) || null;
+}
+
+// Dismiss only the newly-created, request-correlated result dialog returned by
+// waitForDomResult. A dialog that existed before the click is never confirmed.
+function dismissResultDialog(box, dialogsBefore) {
+  if (!box || dialogsBefore.has(box) || !isVisible(box)) return;
+  if (isUploadAllText(box.textContent)) return;
+  const confirmBtn = [...box.querySelectorAll('button, [role="button"]')].find(
+    b => /^(ตกลง|OK|Confirm|确定)$/i.test(b.textContent.trim()) && isVisible(b)
+  );
   if (confirmBtn) confirmBtn.click();
 }
 
 // MutationObserver + polling — resolves on first PASS or FAIL signal.
-// errBefore: form-error text captured before click (ignore stale error that pre-existed).
-// staleToastTexts: Set of toast texts visible before click (ignore them as signals).
-// msgBoxBefore: whether a .el-message-box was already present before click (skip stale box).
-function waitForDomResult(waybill, rowsBefore, errBefore, staleToastTexts, msgBoxBefore) {
+// Snapshots let us distinguish a fresh signal from stale DOM left by a prior scan.
+function waitForDomResult(waybill, rowsBefore, errorsBefore, staleToastNodes, dialogsBefore) {
   return new Promise(resolve => {
     let settled = false;
     let observer = null;
     let intervalId = null;
 
-    const settle = (result) => {
+    const settle = (result, resultDialog = null) => {
       if (settled) return;
       settled = true;
       clearTimeout(tid);
       clearInterval(intervalId);
       if (observer) observer.disconnect();
-      resolve(result);
+      resolve({ result, resultDialog });
     };
 
     const tid = setTimeout(
@@ -135,50 +264,54 @@ function waitForDomResult(waybill, rowsBefore, errBefore, staleToastTexts, msgBo
     );
 
     const check = () => {
-      // PASS (authoritative): new row added AND row contains this exact waybill.
-      // Success toast is NOT a standalone pass signal — it lingers across rounds and
-      // can fire on the previous waybill's success while the new one is still pending.
-      const rows = document.querySelectorAll(SEL.scanListRow);
-      if (rows.length > rowsBefore) {
-        for (const row of rows) {
-          if (row.textContent.includes(waybill)) return settle({ status: 'pass' });
-        }
+      // PASS (authoritative): a new/changed scan-list row contains this exact waybill.
+      const rows = [...document.querySelectorAll(SEL.scanListRow)];
+      for (const row of rows) {
+        const text = row.textContent.trim();
+        const changed = !rowsBefore.has(row) || rowsBefore.get(row) !== text;
+        if (changed && containsExactWaybill(text, waybill)) return settle({ status: 'pass' });
       }
 
-      // MessageBox dialog — appeared AFTER click (not stale from before).
-      // J&T uses this for "already scanned" and other confirmations.
-      if (!msgBoxBefore) {
-        const box = document.querySelector(SEL.messageBox);
-        if (box && box.offsetParent !== null) {
-          const msgEl = box.querySelector(SEL.messageBoxMsg);
-          const text = (msgEl ? msgEl.textContent : box.textContent).trim();
-          if (isDuplicate(text)) return settle({ status: 'pass', msg: 'ยิงซ้ำ (เลขนี้เคยยิงเข้าระบบแล้ว)' });
-          return settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${text || 'แจ้งเตือนไม่ทราบสาเหตุ'}` });
+      // Only a new dialog containing this exact waybill can belong to this request.
+      // Existing dialogs are ignored even if their text changes and are never confirmed.
+      const box = findRequestResultDialog(waybill, dialogsBefore);
+      if (box) {
+        const text = getDialogText(box);
+        if (isDuplicate(text)) {
+          return settle({ status: 'pass', msg: 'ยิงซ้ำ (เลขนี้เคยยิงเข้าระบบแล้ว)' }, box);
         }
+        return settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${text || 'แจ้งเตือนไม่ทราบสาเหตุ'}` }, box);
       }
 
-      // Warning toast — new (not stale). J&T shows warning for duplicate in some flows.
-      const warnToast = document.querySelector(SEL.toastWarning);
-      if (warnToast && warnToast.offsetParent !== null) {
+      // Warning/error toasts from either UI framework.
+      for (const warnToast of visibleElements(SEL.toastWarning)) {
         const text = warnToast.textContent.trim();
-        if (!staleToastTexts.has(text)) {
+        if (isFreshToast(warnToast, staleToastNodes) && containsExactWaybill(text, waybill)) {
           if (isDuplicate(text)) return settle({ status: 'pass', msg: 'ยิงซ้ำ (เลขนี้เคยยิงเข้าระบบแล้ว)' });
           return settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${text || 'คำเตือนไม่ทราบสาเหตุ'}` });
         }
       }
 
-      // FAIL: inline form error that is NEW (text changed vs. what was there before click).
-      // Ignoring errBefore prevents a stale "Please enter the waybill no." from triggering
-      // a false fail on the very next waybill.
-      const errEl = document.querySelector(SEL.formError);
-      const errText = errEl ? errEl.textContent.trim() : '';
-      if (errText && errText !== errBefore) return settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${errText}` });
+      for (const errEl of visibleElements(SEL.formError)) {
+        const errText = errEl.textContent.trim();
+        if (errText && (!errorsBefore.has(errEl) || errorsBefore.get(errEl) !== errText)) {
+          return settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${errText}` });
+        }
+      }
 
-      // FAIL: error toast that is genuinely new (not a stale toast from the previous round).
-      const errToast = document.querySelector(SEL.toastError);
-      if (errToast && errToast.offsetParent !== null) {
+      for (const errToast of visibleElements(SEL.toastError)) {
         const toastText = errToast.textContent.trim();
-        if (!staleToastTexts.has(toastText)) return settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${toastText || 'Error'}` });
+        if (isFreshToast(errToast, staleToastNodes) && containsExactWaybill(toastText, waybill)) {
+          return settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${toastText || 'Error'}` });
+        }
+      }
+
+      // Toast-only PASS is allowed only when the fresh signal names this exact waybill.
+      for (const successToast of visibleElements(SEL.toastSuccess)) {
+        const text = successToast.textContent.trim();
+        if (isFreshToast(successToast, staleToastNodes) && containsExactWaybill(text, waybill)) {
+          return settle({ status: 'pass' });
+        }
       }
     };
 
@@ -193,17 +326,26 @@ function waitForDomResult(waybill, rowsBefore, errBefore, staleToastTexts, msgBo
 async function submitOne(waybill, displayI, displayTotal, delayMs) {
   notify({ type: 'progress', i: displayI, total: displayTotal, waybill, status: 'scanning' });
 
-  const input = findWaybillInput();
-  if (!input) {
-    const result = { status: 'fail', msg: 'ไม่พบช่อง Waybill input — ตรวจสอบว่าอยู่ที่หน้า #/mailPutIn' };
+  if (!isInboundLocation()) {
+    const result = { status: 'fail', msg: 'กรุณาเปิดหน้า Shipping Inbound: /mailPutIn (เว็บใหม่) หรือ #/mailPutIn (เว็บเดิม)' };
     state.results[waybill] = result;
     notify({ type: 'progress', i: displayI, total: displayTotal, waybill, ...result });
     await sleep(delayMs);
     return result;
   }
 
-  // Snapshot row count before clicking OK
-  const rowsBefore = document.querySelectorAll(SEL.scanListRow).length;
+  const input = findWaybillInput();
+  if (!input) {
+    const result = { status: 'fail', msg: 'ไม่พบช่อง Waybill — ตรวจสอบหน้า /mailPutIn (เว็บใหม่) หรือ #/mailPutIn (เว็บเดิม)' };
+    state.results[waybill] = result;
+    notify({ type: 'progress', i: displayI, total: displayTotal, waybill, ...result });
+    await sleep(delayMs);
+    return result;
+  }
+
+  const rowsBefore = new Map(
+    [...document.querySelectorAll(SEL.scanListRow)].map(row => [row, row.textContent.trim()])
+  );
 
   // Use native setter so Vue/Element-UI reactivity sees the new value
   const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
@@ -213,9 +355,9 @@ async function submitOne(waybill, displayI, displayTotal, delayMs) {
 
   await sleep(80); // let Vue propagate binding before click
 
-  const okBtn = findOkButton();
+  const okBtn = findOkButton(input);
   if (!okBtn) {
-    const result = { status: 'fail', msg: 'ไม่พบปุ่ม OK — ตรวจสอบว่าอยู่ที่หน้า #/mailPutIn' };
+    const result = { status: 'fail', msg: 'ไม่พบปุ่ม OK ที่อยู่ข้างช่อง Waybill — ระบบจะไม่กด Upload All' };
     state.results[waybill] = result;
     notify({ type: 'progress', i: displayI, total: displayTotal, waybill, ...result });
     await sleep(delayMs);
@@ -223,17 +365,19 @@ async function submitOne(waybill, displayI, displayTotal, delayMs) {
   }
 
   // Snapshot pre-click state so waitForDomResult can distinguish stale vs. new signals.
-  const errBefore = document.querySelector(SEL.formError)?.textContent.trim() ?? '';
-  const staleToastTexts = dismissStaleToasts();
-  const msgBoxBefore = !!document.querySelector(SEL.messageBox);
+  const errorsBefore = new Map(visibleElements(SEL.formError).map(el => [el, el.textContent.trim()]));
+  const staleToastNodes = dismissStaleToasts();
+  const dialogsBefore = new Map(
+    visibleElements(SEL.messageBox).map(box => [box, getDialogText(box)])
+  );
 
   okBtn.click(); // stage into Scan list only — does NOT trigger upload-all / submit batch
 
-  const result = await waitForDomResult(waybill, rowsBefore, errBefore, staleToastTexts, msgBoxBefore);
+  const { result, resultDialog } = await waitForDomResult(
+    waybill, rowsBefore, errorsBefore, staleToastNodes, dialogsBefore
+  );
 
-  // Dismiss any MessageBox that J&T opened (e.g. duplicate alert) so it doesn't block next waybill.
-  // Scoped to .el-message-box buttons only — never touches page-level submit/upload buttons.
-  dismissMessageBox();
+  dismissResultDialog(resultDialog || findRequestResultDialog(waybill, dialogsBefore), dialogsBefore);
   state.results[waybill] = result;
   notify({ type: 'progress', i: displayI, total: displayTotal, waybill, ...result });
   await sleep(delayMs);
@@ -355,6 +499,11 @@ chrome.runtime.onConnect.addListener(port => {
 // Auto-resume after tab reload — pick up interrupted scan from storage
 chrome.storage.local.get({ [ACTIVE_SCAN_KEY]: null }, ({ [ACTIVE_SCAN_KEY]: saved }) => {
   if (!saved?.running || !Array.isArray(saved.queue) || !saved.queue.length) return;
+  if (!isInboundLocation()) {
+    clearPersistedState();
+    clearBadge();
+    return;
+  }
   state.tabId = saved.tabId ?? null;
   runScan(saved.queue, saved.delayMs ?? DEFAULT_DELAY_MS, saved.retryRounds ?? 2, saved.results ?? null);
 });
