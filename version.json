@@ -1,5 +1,5 @@
 {
-  "version": "4.4.8",
+  "version": "4.4.9",
   "url": "https://github.com/takkub/jt-inbound-checker/releases/latest/download/jt-inbound-checker.zip",
-  "notes": "แก้การค้นหาและคลิกปุ่ม OK ข้างช่อง Waybill บน Shipping Inbound ใหม่ โดยจำกัดเฉพาะปุ่ม local ที่ปลอดภัย พร้อมคงเว็บเดิม"
+  "notes": "แก้ผล Timeout ผิดพลาดบน Shipping Inbound เว็บใหม่ โดยจับคู่ผล API sendInStorageCheck กับเลข Waybill ที่ยิงจริง พร้อมคง DOM flow ของเว็บเดิม"
 }

@@ -1,8 +1,13 @@
 'use strict';
 
+(() => {
+if (globalThis.__jtInboundContentV449Loaded) return;
+globalThis.__jtInboundContentV449Loaded = true;
+
 const DEFAULT_DELAY_MS = 1000;
 const RESULT_TIMEOUT_MS = 3000;
 const ACTIVE_SCAN_KEY = 'jtInbound.activeScan';
+const API_EVENT_CHANNEL = 'jt-inbound-checker-v4.4.9';
 
 // Selectors for both the legacy Element UI page and the new home-site UI.
 const SEL = {
@@ -106,6 +111,12 @@ function isInboundLocation(loc = window.location) {
       || loc.hash.startsWith('#/mailPutIn/');
   }
   return false;
+}
+
+function isNewSiteLocation(loc = window.location) {
+  return loc.protocol === 'https:'
+    && loc.hostname === 'home-site.jtexpress.co.th'
+    && (loc.pathname === '/mailPutIn' || loc.pathname.startsWith('/mailPutIn/'));
 }
 
 function isVisible(el) {
@@ -277,6 +288,54 @@ function dismissResultDialog(box, dialogsBefore) {
   if (confirmBtn) confirmBtn.click();
 }
 
+// The new site is authoritative through its exact, request-correlated business
+// response. A matching request event must arrive after this listener is armed,
+// so a late response from an earlier scan cannot settle the current waybill.
+function waitForNewSiteApiResult(waybill) {
+  return new Promise(resolve => {
+    const requestIds = new Set();
+    let settled = false;
+    let timeoutId = null;
+
+    const settle = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      window.removeEventListener('message', onMessage);
+      resolve({ result, resultDialog: null });
+    };
+
+    const onMessage = event => {
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      const detail = event.data;
+      if (!detail || detail.channel !== API_EVENT_CHANNEL || detail.waybill !== waybill) return;
+
+      if (detail.type === 'request' && typeof detail.requestId === 'string') {
+        requestIds.add(detail.requestId);
+        return;
+      }
+      if (detail.type !== 'response' || !requestIds.has(detail.requestId)) return;
+
+      const response = detail.result;
+      if (!response || typeof response !== 'object') return;
+      const responseMsg = typeof response.msg === 'string' ? response.msg.trim() : '';
+      if (responseMsg && isDuplicate(responseMsg)) {
+        settle({ status: 'pass', msg: 'ยิงซ้ำ (เลขนี้เคยยิงเข้าระบบแล้ว)' });
+      } else if (response.succ === true && response.fail === false && response.data === 'SUCCESS') {
+        settle({ status: 'pass' });
+      } else {
+        settle({ status: 'fail', msg: `ปัญหาจากระบบ J&T: ${responseMsg || 'API ตอบกลับว่าไม่สำเร็จ'}` });
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    timeoutId = setTimeout(
+      () => settle({ status: 'timeout', msg: 'Timeout — ไม่ได้รับผล sendInStorageCheck จากหน้า J&T' }),
+      RESULT_TIMEOUT_MS
+    );
+  });
+}
+
 // MutationObserver + polling — resolves on first PASS or FAIL signal.
 // Snapshots let us distinguish a fresh signal from stale DOM left by a prior scan.
 function waitForDomResult(waybill, rowsBefore, errorsBefore, staleToastNodes, dialogsBefore) {
@@ -379,7 +438,8 @@ async function submitOne(waybill, displayI, displayTotal, delayMs) {
     return result;
   }
 
-  const rowsBefore = new Map(
+  const useNewSiteApi = isNewSiteLocation();
+  const rowsBefore = useNewSiteApi ? null : new Map(
     [...document.querySelectorAll(SEL.scanListRow)].map(row => [row, row.textContent.trim()])
   );
 
@@ -396,20 +456,25 @@ async function submitOne(waybill, displayI, displayTotal, delayMs) {
     return result;
   }
 
-  // Snapshot pre-click state so waitForDomResult can distinguish stale vs. new signals.
-  const errorsBefore = new Map(visibleElements(SEL.formError).map(el => [el, el.textContent.trim()]));
-  const staleToastNodes = dismissStaleToasts();
-  const dialogsBefore = new Map(
+  // Legacy site retains v4.4.8 DOM snapshots. The new site arms its exact API
+  // listener before click and does not use rows, dialogs, or toasts as success.
+  const errorsBefore = useNewSiteApi ? null
+    : new Map(visibleElements(SEL.formError).map(el => [el, el.textContent.trim()]));
+  const staleToastNodes = useNewSiteApi ? null : dismissStaleToasts();
+  const dialogsBefore = useNewSiteApi ? null : new Map(
     visibleElements(SEL.messageBox).map(box => [box, getDialogText(box)])
   );
+  const newSiteResultPromise = useNewSiteApi ? waitForNewSiteApiResult(waybill) : null;
 
   okBtn.click(); // stage into Scan list only — does NOT trigger upload-all / submit batch
 
-  const { result, resultDialog } = await waitForDomResult(
-    waybill, rowsBefore, errorsBefore, staleToastNodes, dialogsBefore
-  );
+  const { result, resultDialog } = useNewSiteApi
+    ? await newSiteResultPromise
+    : await waitForDomResult(waybill, rowsBefore, errorsBefore, staleToastNodes, dialogsBefore);
 
-  dismissResultDialog(resultDialog || findRequestResultDialog(waybill, dialogsBefore), dialogsBefore);
+  if (!useNewSiteApi) {
+    dismissResultDialog(resultDialog || findRequestResultDialog(waybill, dialogsBefore), dialogsBefore);
+  }
   state.results[waybill] = result;
   notify({ type: 'progress', i: displayI, total: displayTotal, waybill, ...result });
   await sleep(delayMs);
@@ -539,3 +604,5 @@ chrome.storage.local.get({ [ACTIVE_SCAN_KEY]: null }, ({ [ACTIVE_SCAN_KEY]: save
   state.tabId = saved.tabId ?? null;
   runScan(saved.queue, saved.delayMs ?? DEFAULT_DELAY_MS, saved.retryRounds ?? 2, saved.results ?? null);
 });
+
+})();
