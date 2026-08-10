@@ -91,7 +91,7 @@ Popup มี **2 แท็บ** ที่แถบสีน้ำเงินด
 - **Scan** — แท็บหลัก ใช้ยิง waybill
 - **History (ไม่ผ่าน)** — ดูประวัติรายการที่ยิงไม่ผ่าน
 
-มุมขวาบนของแถบแสดง badge เวอร์ชัน เช่น **`v4.4.7`**
+มุมขวาบนของแถบแสดง badge เวอร์ชัน เช่น **`v4.4.8`**
 
 ### 3.3 วิธีป้อนข้อมูล — 2 แบบ
 
@@ -155,7 +155,7 @@ EX0123456790TH, EX0123456791TH
 
 ### 3.8 badge เวอร์ชันมุมขวาล่างบนหน้า J&T
 
-เมื่อเปิดหน้า Shipping Inbound บน `home-site.jtexpress.co.th` หรือ `home.jtexpress.co.th` จะเห็น badge กึ่งโปร่งใส มุมขวาล่างของหน้าเว็บ แสดง `J&T Checker v4.4.7` — ยืนยันว่า extension โหลดทำงานบนหน้านั้นแล้ว (ไม่ block การคลิก)
+เมื่อเปิดหน้า Shipping Inbound บน `home-site.jtexpress.co.th` หรือ `home.jtexpress.co.th` จะเห็น badge กึ่งโปร่งใส มุมขวาล่างของหน้าเว็บ แสดง `J&T Checker v4.4.8` — ยืนยันว่า extension โหลดทำงานบนหน้านั้นแล้ว (ไม่ block การคลิก)
 
 badge นี้จะแสดงความคืบหน้าแบบ `3/10` ใน Chrome tab badge icon ด้วย ระหว่างที่ scan รัน
 
@@ -218,6 +218,6 @@ badge นี้จะแสดงความคืบหน้าแบบ `3/1
   ผู้ใช้ macOS / Linux ต้องอัปเดตแบบ manual เสมอ
 - **ตัว extension** (การอ่าน PDF และยิง waybill) ใช้ได้กับ **ทุก OS ที่รัน Chrome**
 - Extension ทำงานเฉพาะหน้า Shipping Inbound ที่ `home-site.jtexpress.co.th/mailPutIn` และ `home.jtexpress.co.th/#/mailPutIn` — ไม่รองรับ route หรือโดเมนอื่น
-- Automation กรอกเลขแล้วกดเฉพาะปุ่ม **OK** ที่อยู่ใน control group เดียวกับช่อง Waybill เพื่อเพิ่มเข้า Scan list เท่านั้น หากหาแบบเจาะจงไม่ได้จะหยุดอย่างปลอดภัย และจะไม่กดหรือยืนยัน **Upload All**
+- Automation กรอกเลขแล้วกดเฉพาะปุ่ม **OK** ที่สัมพันธ์กับช่อง Waybill ใน form row/control group เดียวกัน (รวม layout ที่ input กับปุ่มอยู่คนละ wrapper) เพื่อเพิ่มเข้า Scan list เท่านั้น หากหาแบบเจาะจงไม่ได้หรือมีปุ่ม local มากกว่าหนึ่งปุ่มจะหยุดอย่างปลอดภัย และจะไม่กดหรือยืนยัน **Upload All**
 - การยิง waybill อาศัย DOM automation — หาก J&T เปลี่ยน UI อาจหยุดทำงาน รอ update จาก repo
 - เวลา timeout ต่อ 1 รายการคือ 3 วินาที — เครือข่ายช้าหรือ J&T ตอบช้าอาจได้ Timeout แล้วค่อย retry

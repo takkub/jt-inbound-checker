@@ -187,17 +187,53 @@ function isSafeOkButton(btn) {
     && isVisible(btn);
 }
 
+function isStrictlyNearWaybillInput(input, button) {
+  const inputRect = input.getBoundingClientRect();
+  const buttonRect = button.getBoundingClientRect();
+  if (!inputRect.width || !inputRect.height || !buttonRect.width || !buttonRect.height) return false;
+
+  const verticalOverlap = Math.min(inputRect.bottom, buttonRect.bottom)
+    - Math.max(inputRect.top, buttonRect.top);
+  const centerDistance = Math.abs(
+    (inputRect.top + inputRect.bottom) / 2 - (buttonRect.top + buttonRect.bottom) / 2
+  );
+  const sameRow = verticalOverlap > 0
+    || centerDistance <= Math.max(inputRect.height, buttonRect.height);
+  const horizontalGap = buttonRect.left >= inputRect.right
+    ? buttonRect.left - inputRect.right
+    : inputRect.left >= buttonRect.right
+      ? inputRect.left - buttonRect.right
+      : 0;
+
+  return sameRow && horizontalGap <= 240;
+}
+
 function findOkButton(input) {
-  // Only accept an exact-OK button inside the input's local control/form-item.
-  // Stop before broad form/page containers; ambiguity fails safely.
+  // Inspect each shared ancestor from nearest to farthest, including the form.
+  // This supports the new page where the input and OK live in sibling wrappers.
+  // Every candidate must also have strict same-row geometry, so an unrelated
+  // page/form OK cannot become eligible even when the page omits a <form>.
   let scope = input?.parentElement;
-  for (let depth = 0; scope && depth < 6; depth++, scope = scope.parentElement) {
-    if (scope.matches('form, main, body, [role="main"]')) break;
-    const buttons = [...scope.querySelectorAll('button, [role="button"]')].filter(isSafeOkButton);
+  for (let depth = 0; scope && depth < 10; depth++, scope = scope.parentElement) {
+    const isForm = scope.matches('form');
+    if (scope.matches('main, body, [role="main"]')) break;
+
+    const buttons = [...scope.querySelectorAll('button, [role="button"]')]
+      .filter(isSafeOkButton)
+      .filter(button => isStrictlyNearWaybillInput(input, button));
     if (buttons.length === 1) return buttons[0];
     if (buttons.length > 1) return null;
+    if (isForm) break;
   }
   return null;
+}
+
+function fillWaybillInput(input, waybill) {
+  // Use the native setter so Vue/Element-UI reactivity sees the new value.
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  nativeSetter.call(input, waybill);
+  input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 // Dismiss visible Element/Ant toasts and retain their nodes for staleness detection.
@@ -347,11 +383,7 @@ async function submitOne(waybill, displayI, displayTotal, delayMs) {
     [...document.querySelectorAll(SEL.scanListRow)].map(row => [row, row.textContent.trim()])
   );
 
-  // Use native setter so Vue/Element-UI reactivity sees the new value
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-  nativeSetter.call(input, waybill);
-  input.dispatchEvent(new InputEvent('input', { bubbles: true }));
-  input.dispatchEvent(new Event('change', { bubbles: true }));
+  fillWaybillInput(input, waybill);
 
   await sleep(80); // let Vue propagate binding before click
 
