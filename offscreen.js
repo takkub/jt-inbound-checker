@@ -2,6 +2,12 @@ import { getDocument, GlobalWorkerOptions } from './vendor/pdf.min.mjs';
 
 GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('vendor/pdf.worker.min.mjs');
 
+// An offscreen document never paints, so requestAnimationFrame never fires. pdf.js yields
+// through it every ~15ms of rendering, so image-heavy pages (e.g. EasyBoss raster + SMask)
+// hung until PAGE_TIMEOUT_MS while light vector pages finished in one slice and looked fine.
+window.requestAnimationFrame = cb => setTimeout(() => cb(performance.now()), 0);
+window.cancelAnimationFrame = id => clearTimeout(id);
+
 const {
   MultiFormatReader, BinaryBitmap, HybridBinarizer,
   HTMLCanvasElementLuminanceSource, DecodeHintType, BarcodeFormat,
@@ -28,6 +34,17 @@ const hardReader = new MultiFormatReader();
 hardReader.setHints(hardHints);
 
 const PAGE_TIMEOUT_MS = 15_000;
+
+// Raster-only labels (EasyBoss, ~108 DPI image): ZXing success depends erratically on the
+// resample scale, so after the normal 2.5x/4x passes retry a few other scales (only reached
+// by pages nothing else could read).
+const DECODE_PASSES = [
+  { scale: 2.5, reader: fastReader, grayscale: false },
+  { scale: 4, reader: hardReader, grayscale: true },
+  { scale: 1, reader: fastReader, grayscale: false },
+  { scale: 0.5, reader: fastReader, grayscale: false },
+  { scale: 3.5, reader: fastReader, grayscale: false },
+];
 
 const canvas = document.getElementById('decode-canvas');
 const ctx = canvas.getContext('2d');
@@ -98,27 +115,20 @@ async function decodePageWithTimeout(pdf, pageNum) {
     const fromText = extractWaybillFromText(tokens);
     if (fromText) return fromText;
 
-    // Fallback: barcode decode (ZXing, 2-pass)
-    const viewport25 = page.getViewport({ scale: 2.5 });
-    canvas.width = viewport25.width;
-    canvas.height = viewport25.height;
-    const render1 = page.render({ canvasContext: ctx, viewport: viewport25 });
-    if (!cancelFn) cancelFn = () => render1.cancel();
-    try { await render1.promise; } catch { return null; }
-    cancelFn = null;
+    // Fallback: barcode decode (ZXing, multi-pass)
+    for (const { scale, reader, grayscale } of DECODE_PASSES) {
+      const viewport = page.getViewport({ scale });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const render = page.render({ canvasContext: ctx, viewport });
+      cancelFn = () => render.cancel();
+      try { await render.promise; } catch { return null; }
+      cancelFn = null;
 
-    const fast = tryZXing(fastReader, false);
-    if (fast) return fast;
-
-    const viewport4 = page.getViewport({ scale: 4 });
-    canvas.width = viewport4.width;
-    canvas.height = viewport4.height;
-    const render2 = page.render({ canvasContext: ctx, viewport: viewport4 });
-    cancelFn = () => render2.cancel();
-    try { await render2.promise; } catch { return null; }
-    cancelFn = null;
-
-    return tryZXing(hardReader, true);
+      const code = tryZXing(reader, grayscale);
+      if (code) return code;
+    }
+    return null;
   })();
 
   const timeoutPromise = new Promise(resolve => setTimeout(() => {

@@ -1,5 +1,5 @@
 {
-  "version": "4.4.9",
+  "version": "4.4.10",
   "url": "https://github.com/takkub/jt-inbound-checker/releases/latest/download/jt-inbound-checker.zip",
-  "notes": "แก้ผล Timeout ผิดพลาดบน Shipping Inbound เว็บใหม่ โดยจับคู่ผล API sendInStorageCheck กับเลข Waybill ที่ยิงจริง พร้อมคง DOM flow ของเว็บเดิม"
+  "notes": "แก้ PDF EasyBoss (ภาพ raster + SMask) อ่าน QR/barcode ไม่ออกทั้งไฟล์ — render ค้างใน offscreen document เพราะ requestAnimationFrame ไม่ทำงาน จึงเพิ่ม shim และ pass สำรองหลาย scale สำหรับหน้าที่ ZXing อ่านยาก"
 }
